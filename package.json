@@ -2,12 +2,12 @@
   "name": "Basically-Cloud-Storage-Server",
   "version": "1.0.0",
   "description": "Simple LAN storage server with basic auth and file upload/download",
-  "main": "server.js",
+  "main": "BCServer.js",
   "bin": {
-    "lan-storage-server": "./server.js"
+    "lan-storage-server": "./BCServer.js"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node BCServer.js"
   },
   "author": "iamcheese-man",
   "license": "MIT",
