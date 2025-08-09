@@ -4,10 +4,12 @@
   "description": "Simple LAN storage server with basic auth and file upload/download",
   "main": "BCServer.js",
   "bin": {
-    "lan-storage-server": "./BCServer.js"
+    "BC-storage-server": "./BCServer.js",
+    "BC-storage-unsecure":"./BCServer-unrestrict.js"
   },
   "scripts": {
-    "start": "node BCServer.js"
+    "start": "node BCServer.js",
+    "unsecure": "node BCServer-unrestrict.js"
   },
   "author": "iamcheese-man",
   "license": "MIT",
