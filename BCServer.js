@@ -21,7 +21,7 @@ const Busboy = require('busboy');
 // === CONFIG ===
 const PORT = 8000;
 const USERNAME = 'admin';
-const PASSWORD = 'supersecret';
+const PASSWORD = '6gIsP101@server_d3f@ult';
 const STORAGE_DIR = path.join(__dirname, 'uploads');
 // ================
 
