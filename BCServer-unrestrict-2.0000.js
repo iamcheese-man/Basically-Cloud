@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 // ====================
 // CONFIG
@@ -18,7 +19,32 @@ const config = {
 const app = express();
 let storageAvailable = false;
 
-// Check if USB storage exists
+// Find LAN IPv4 address
+function getLanIp() {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                if (
+                    net.address.startsWith('10.') ||
+                    net.address.startsWith('172.') ||
+                    net.address.startsWith('192.168.')
+                ) {
+                    return net.address;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+const LAN_IP = getLanIp();
+if (!LAN_IP) {
+    console.error('No LAN IPv4 address found. Make sure you are on a LAN. Exiting.');
+    process.exit(1);
+}
+
+// USB detection
 function checkStorage() {
     storageAvailable = fs.existsSync(config.storagePath);
     if (!storageAvailable) {
@@ -28,10 +54,7 @@ function checkStorage() {
     }
 }
 
-// Initial check
 checkStorage();
-
-// Poll USB status periodically
 setInterval(checkStorage, config.checkInterval);
 
 // ====================
@@ -45,8 +68,18 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => cb(null, file.originalname)
 });
 
-// No limits: completely unrestricted
 const upload = multer({ storage });
+
+// ====================
+// CORS MIDDLEWARE
+// ====================
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+});
 
 // ====================
 // ROUTES
@@ -80,6 +113,6 @@ app.get('/files/:filename', (req, res) => {
 // ====================
 // START SERVER
 // ====================
-app.listen(config.port, () => {
-    console.log(`USB Cloud running at http://localhost:${config.port}`);
+app.listen(config.port, LAN_IP, () => {
+    console.log(`USB Cloud running at http://${LAN_IP}:${config.port}`);
 });
