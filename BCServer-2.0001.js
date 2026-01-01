@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 // ====================
 // CONFIG
@@ -10,7 +11,7 @@ const config = {
     port: 3000,                      // Server port
     storagePath: 'E:/cloud_storage', // USB storage folder path
     checkInterval: 2000,             // USB check interval in ms
-    maxUploadSize: '50mb'            // Max upload size (optional)
+    maxUploadSize: '50mb'            // Max upload size (kept for normal version)
 };
 
 // ====================
@@ -19,7 +20,32 @@ const config = {
 const app = express();
 let storageAvailable = false;
 
-// Check if USB storage exists
+// Find LAN IPv4 address
+function getLanIp() {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                if (
+                    net.address.startsWith('10.') ||
+                    net.address.startsWith('172.') ||
+                    net.address.startsWith('192.168.')
+                ) {
+                    return net.address;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+const LAN_IP = getLanIp();
+if (!LAN_IP) {
+    console.error('No LAN IPv4 address found. Make sure you are on a LAN. Exiting.');
+    process.exit(1);
+}
+
+// USB detection
 function checkStorage() {
     storageAvailable = fs.existsSync(config.storagePath);
     if (!storageAvailable) {
@@ -29,10 +55,7 @@ function checkStorage() {
     }
 }
 
-// Initial check
 checkStorage();
-
-// Poll USB status periodically
 setInterval(checkStorage, config.checkInterval);
 
 // ====================
@@ -46,12 +69,12 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => cb(null, file.originalname)
 });
 
+// Upload limits enforced
 const upload = multer({
     storage,
-    limits: { fileSize: parseSize(config.maxUploadSize) } // optional limit
+    limits: { fileSize: parseSize(config.maxUploadSize) }
 });
 
-// Helper to parse sizes like '50mb', '1gb'
 function parseSize(size) {
     const match = size.toLowerCase().match(/(\d+)(kb|mb|gb)/);
     if (!match) return Infinity;
@@ -65,16 +88,24 @@ function parseSize(size) {
 }
 
 // ====================
+// CORS MIDDLEWARE
+// ====================
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+});
+
+// ====================
 // ROUTES
 // ====================
-
-// Upload file
 app.post('/upload', upload.single('file'), (req, res) => {
     if (!storageAvailable) return res.status(503).send('USB storage not available');
     res.send('File uploaded successfully!');
 });
 
-// List files
 app.get('/files', (req, res) => {
     if (!storageAvailable) return res.status(503).send('USB storage not available');
     fs.readdir(config.storagePath, (err, files) => {
@@ -83,7 +114,6 @@ app.get('/files', (req, res) => {
     });
 });
 
-// Download file
 app.get('/files/:filename', (req, res) => {
     if (!storageAvailable) return res.status(503).send('USB storage not available');
     const filePath = path.join(config.storagePath, req.params.filename);
@@ -96,6 +126,6 @@ app.get('/files/:filename', (req, res) => {
 // ====================
 // START SERVER
 // ====================
-app.listen(config.port, () => {
-    console.log(`USB Cloud running at http://localhost:${config.port}`);
+app.listen(config.port, LAN_IP, () => {
+    console.log(`USB Cloud (normal) running at http://${LAN_IP}:${config.port}`);
 });
